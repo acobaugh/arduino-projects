@@ -1,9 +1,14 @@
 #include <LiquidCrystal.h>
 #include "encoder.h"
 
+// version string
+static const char version[] = VERSION;
+
 // compile-time maxiumums, for safety
 const long maxOnTime = 120;	// on time in uS
 const long maxBPS = 300;	// max BPS
+
+const int countsPerDetent = 4;
 
 // inputs
 const int modePin = A0; // Mode select
@@ -47,7 +52,7 @@ Encoder encoders[3] = {
 };
 
 void setup() {
-	pinMode(modePin, INPUT);
+	pinMode(modePin, INPUT_PULLUP);
 	pinMode(outputPin, OUTPUT);
 
 	lcd.begin(16, 2);
@@ -59,14 +64,18 @@ void setup() {
 	PRF = 0;
 	nextOnTime = 0;
 	nextOffTime = 0;
-	lcd.print("Booting...");
-	delay(2000);
+
+	sprintf(txt, "v%s", VERSION);
+	lcd.setCursor(0, 0);
+	lcd.print(txt);
+	delay(1000);
+	lcd.clear();
 	resetEncoders();
 }
 
 int getNextMode(int m) {
-	int nextMode = m++;
-	if (nextMode > int(sizeof(Modes)) - 1) {
+	int nextMode = ++m;
+	if (nextMode > int(sizeof(Modes)/sizeof(Modes[0])) - 1) {
 		return 0;
 	} else {
 		return nextMode;
@@ -78,15 +87,18 @@ void doFixed() {
 	lcd.setCursor(0, 0);
 	lcd.print("Fixed");
 
-	BPS = encoders[0].getPosition();
-	onTime = encoders[1].getPosition();
-	
+	BPS = encoders[0].getPosition() / countsPerDetent;
+	onTime = encoders[1].getPosition() / countsPerDetent;
+
+	if (BPS < 0) BPS = 0;
+	if (onTime < 0) onTime = 0;
+
 	lcd.setCursor(6, 0);
-	sprintf(txt, "BPS: %i", BPS);
+	sprintf(txt, "BPS: %03i", BPS);
 	lcd.print(txt);
 
 	lcd.setCursor(7, 1);
-	sprintf(txt, "ON: %lus", onTime);
+	sprintf(txt, "ON: %03ius", onTime);
 	lcd.print(txt);
 
 	return;
@@ -112,25 +124,29 @@ void doMIDI() {
 
 // loop through and reset all encoders to 0
 void resetEncoders() {
-	for (unsigned int i; i < sizeof(encoders)/sizeof(encoders[0]); i++) {
+	for (unsigned int i = 0; i < sizeof(encoders)/sizeof(encoders[0]); i++) {
 		encoders[i].setPosition(0);
 	}
 }
 
 // loop through and read values on all encoders
 void readEncoders() {
-	for (unsigned int i; i < sizeof(encoders)/sizeof(encoders[0]); i++) {
+	for (unsigned int i = 0; i < sizeof(encoders)/sizeof(encoders[0]); i++) {
 		encoders[i].readPosition();
 	}
 }
 
 void loop() {
 	// check our inputs
-	if (digitalRead(modePin) == HIGH) {
+	if (digitalRead(modePin) == LOW) {
 		// change mode
 		mode = getNextMode(mode);
 		// reset encoders to 0
 		resetEncoders();
+		lcd.clear();
+		lcd.print("....");
+		delay(300);
+		lcd.clear();
 	}
 	// read values from all encoders
 	readEncoders();
