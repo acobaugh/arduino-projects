@@ -3,10 +3,9 @@
  *  https://playground.arduino.cc/Main/RotaryEncoders#Example17
  */
 
-#ifndef encoder_h
-#define encoder_h
+#ifndef ENCODER_H
 
-#include "Arduino.h"
+#include <Arduino.h>
 
 class Encoder {
 	public:
@@ -21,4 +20,5 @@ class Encoder {
 		long int _position;
 };
 
+#define ENCODER_H
 #endif

@@ -1,4 +1,5 @@
 #include "encoder.h"
+#include "main.h"
 
 Encoder::Encoder(int8_t pinA, int8_t pinB) {	
 	_pinA = pinA;
@@ -51,8 +52,6 @@ void Encoder::readPosition() {
 
 	lastModeA = curModeA;
 	lastModeB = curModeB;
-
-	return _position;
 }
 
 void Encoder::setPosition(long int position) {

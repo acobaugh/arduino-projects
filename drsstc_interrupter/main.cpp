@@ -1,5 +1,8 @@
+#include <Arduino.h>
 #include <LiquidCrystal.h>
+#include "main.h"
 #include "encoder.h"
+#include "timer.h"
 
 // version string
 static const char version[] = VERSION;
@@ -20,8 +23,8 @@ const int Enc2PinB = A5;
 const int Enc3PinA = 9;  // Burst rate (burst, oneshot)
 const int Enc3PinB = 10;
 
-// outputs
-const int outputPin = LED_BUILTIN;
+// LCD
+const int outputPin = 13; // LED pin
 const int lcdRS = 12;
 const int lcdEN = 11;
 const int lcdD4 = 5;
@@ -29,21 +32,17 @@ const int lcdD5 = 4;
 const int lcdD6 = 3;
 const int lcdD7 = 2;
 
+// output, defined as port/bit for speed
+volatile uint8_t& outputPORTx PORTB;
+volatile uint8_t& outputDDRx DDRB;
+const int outputBit = 5;
+
+// globals
 int mode;
 int BPS;
-unsigned long onTime, PRF, nextOnTime, nextOffTime;
+unsigned long onTime, PRF;
 char txt[15];
 
-// initialize LCD library
-LiquidCrystal lcd(lcdRS, lcdEN, lcdD4, lcdD5, lcdD6, lcdD7);
-
-void doFixed();
-void doBurst();
-void doMIDI();
-void resetEncoders();
-void readEncoders();
-
-typedef void (* ModeFP)();
 ModeFP Modes[3] = {&doFixed, &doBurst, &doMIDI};
 Encoder encoders[3] = { 
 	{Enc1PinA, Enc1PinB},
@@ -51,9 +50,15 @@ Encoder encoders[3] = {
 	{Enc3PinA, Enc3PinB}
 };
 
+// initialize LCD library
+LiquidCrystal lcd(lcdRS, lcdEN, lcdD4, lcdD5, lcdD6, lcdD7);
+
 void setup() {
 	pinMode(modePin, INPUT_PULLUP);
-	pinMode(outputPin, OUTPUT);
+	
+	// set output port to output and low
+	outputDDRx |= (1 << outputBit);
+	outputPORTx &= ~(1 << outputBit);
 
 	lcd.begin(16, 2);
 
@@ -62,8 +67,6 @@ void setup() {
 	BPS = 0;
 	onTime = 0;
 	PRF = 0;
-	nextOnTime = 0;
-	nextOffTime = 0;
 
 	sprintf(txt, "v%s", VERSION);
 	lcd.setCursor(0, 0);
@@ -71,6 +74,8 @@ void setup() {
 	delay(1000);
 	lcd.clear();
 	resetEncoders();
+
+	setupTimer();
 }
 
 int getNextMode(int m) {
@@ -98,7 +103,7 @@ void doFixed() {
 	lcd.print(txt);
 
 	lcd.setCursor(7, 1);
-	sprintf(txt, "ON: %03ius", onTime);
+	sprintf(txt, "ON: %03ius", int(onTime));
 	lcd.print(txt);
 
 	return;
